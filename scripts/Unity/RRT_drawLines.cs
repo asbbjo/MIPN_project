@@ -25,8 +25,8 @@ public class RRT_drawlines : MonoBehaviour
             return;
         }
 
-        GenerateRRTPoints(startWaypoint, endWaypoint, 5, 4);
-        Debug.Log("RRTPoints found.");
+        GenerateRRTPoints(startWaypoint, endWaypoint, 7, 4, 6); //#of points, #distance and #number of branches
+        Debug.Log("RRTPoints found."); 
 
         InitializeGraph();
         Debug.Log("Graph initialized.");
@@ -80,17 +80,22 @@ public class RRT_drawlines : MonoBehaviour
         }
     }
 
-    bool IsObstacleBetween(GameObject waypoint1, GameObject waypoint2)
+   bool IsObstacleBetween(GameObject waypoint1, GameObject waypoint2)
     {
         Vector3 direction = waypoint2.transform.position - waypoint1.transform.position;
         float distance = direction.magnitude;
         Ray ray = new Ray(waypoint1.transform.position, direction);
         int layerMask = LayerMask.GetMask("Obstacles"); // Ensure obstacles are on this layer
 
+        // Perform the raycast to check for obstacles
         return Physics.Raycast(ray, distance, layerMask);
     }
 
-    void GenerateRRTPoints(GameObject start, GameObject target, int numberOfPoints, float maxDistance)
+
+
+
+
+    void GenerateRRTPoints(GameObject start, GameObject target, int numberOfPoints, float maxDistance, int numberOfBranches)
     {
         GameObject currentPoint = start;
 
@@ -101,6 +106,23 @@ public class RRT_drawlines : MonoBehaviour
                 Random.Range(currentPoint.transform.position.y - maxDistance, currentPoint.transform.position.y + maxDistance),
                 Random.Range(currentPoint.transform.position.z - maxDistance, currentPoint.transform.position.z + maxDistance)
             );
+
+            /*for (int j = 0; j < numberOfBranches; j++)
+            {
+                Vector3 newRandomPoint = new Vector3(
+                    Random.Range(currentPoint.transform.position.x - maxDistance, currentPoint.transform.position.x + maxDistance),
+                    Random.Range(currentPoint.transform.position.y - maxDistance, currentPoint.transform.position.y + maxDistance),
+                    Random.Range(currentPoint.transform.position.z - maxDistance, currentPoint.transform.position.z + maxDistance)
+                );
+
+                float newDist = Vector3.Distance(newRandomPoint, target.transform.position);
+                float oldDist = Vector3.Distance(randomPoint, target.transform.position);
+
+                if (newDist < oldDist)
+                {
+                    randomPoint = newRandomPoint;
+                }
+            }*/
 
             GameObject newPoint = new GameObject("New Waypoint" + i);
             newPoint.transform.position = randomPoint;
