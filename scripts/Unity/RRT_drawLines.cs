@@ -26,7 +26,7 @@ public class RRT_drawlines : MonoBehaviour
             return;
         }
 
-        GenerateRRTPoints(startWaypoint, endWaypoint, 7, 4, 6); //#of points, #distance and #number of branches
+        GenerateRRTPoints(startWaypoint, endWaypoint, 7, 3, 6); //#of points, #distance and #number of branches
         Debug.Log("RRTPoints found."); 
 
         InitializeGraph();
@@ -106,69 +106,74 @@ public class RRT_drawlines : MonoBehaviour
 
         for (int i = 0; i < numberOfPoints; i++)
         {
-            Vector3 randomPoint = new Vector3(
+            Vector3 newPoint = new Vector3(
                 Random.Range(currentPoint.transform.position.x - maxDistance, currentPoint.transform.position.x + maxDistance),
                 Random.Range(currentPoint.transform.position.y - maxDistance, currentPoint.transform.position.y + maxDistance),
                 Random.Range(currentPoint.transform.position.z - maxDistance, currentPoint.transform.position.z + maxDistance)
             );
 
-            /*for (int j = 0; j < numberOfBranches; j++)
+            GameObject newObject = new GameObject("New Waypoint" + i);
+            newObject.transform.position = newPoint;
+
+
+            for (int j = 0; j < numberOfBranches; j++)
             {
-                Vector3 newRandomPoint = new Vector3(
+                Vector3 iterativePoint = new Vector3(
                     Random.Range(currentPoint.transform.position.x - maxDistance, currentPoint.transform.position.x + maxDistance),
                     Random.Range(currentPoint.transform.position.y - maxDistance, currentPoint.transform.position.y + maxDistance),
                     Random.Range(currentPoint.transform.position.z - maxDistance, currentPoint.transform.position.z + maxDistance)
                 );
 
-                float newDist = Vector3.Distance(newRandomPoint, target.transform.position);
-                float oldDist = Vector3.Distance(randomPoint, target.transform.position);
+                GameObject iterativeObject = new GameObject("New Waypoint" + i);
+                iterativeObject.transform.position = iterativePoint;
+
+                float newDist = Vector3.Distance(iterativePoint, target.transform.position);
+                float oldDist = Vector3.Distance(newPoint, target.transform.position);
 
                 if (newDist < oldDist)
                 {
-                    randomPoint = newRandomPoint;
+                    newObject = iterativeObject;
+                    newPoint = iterativePoint;
                 }
-            }*/
+            }
+            
+            AddMeshColliderToPoint(newObject);
 
-            GameObject newPoint = new GameObject("New Waypoint" + i);
-            newPoint.transform.position = randomPoint;
-
-            AddMeshColliderToPoint(newPoint);
-
-            if (!IsObstacleBetween(currentPoint, newPoint))
+            if (!IsObstacleBetween(currentPoint, newObject))
             {
-                float distanceToCurrent = Vector3.Distance(currentPoint.transform.position, newPoint.transform.position);
+                float distanceToCurrent = Vector3.Distance(currentPoint.transform.position, newObject.transform.position);
 
                 if (!graph.ContainsKey(currentPoint))
                 {
                     graph[currentPoint] = new Dictionary<GameObject, float>();
                 }
-                if (!graph.ContainsKey(newPoint))
+                if (!graph.ContainsKey(newObject))
                 {
-                    graph[newPoint] = new Dictionary<GameObject, float>();
+                    graph[newObject] = new Dictionary<GameObject, float>();
                 }
 
-                graph[currentPoint][newPoint] = distanceToCurrent;
-                graph[newPoint][currentPoint] = distanceToCurrent;
+                graph[currentPoint][newObject] = distanceToCurrent;
+                graph[newObject][currentPoint] = distanceToCurrent;
 
-                currentPoint = newPoint;
-                newPoints.Add(newPoint);
-                Debug.Log("Added new waypoint " + newPoint.name + " closer to target.");
+                currentPoint = newObject;
+                newPoints.Add(newObject);
+                Debug.Log("Added new waypoint " + newObject.name + " closer to target.");
             }
             else
             {
-                Destroy(newPoint);
+                Destroy(newObject);
                 Debug.Log("New waypoint " + i + " is not valid due to obstacles.");
             }
 
             // Check if the current point is close enough to the target
-            if (Vector3.Distance(currentPoint.transform.position, target.transform.position) < maxDistance)
+            /*if (Vector3.Distance(currentPoint.transform.position, target.transform.position) < maxDistance)
             {
                 float distanceToTarget = Vector3.Distance(currentPoint.transform.position, target.transform.position);
                 graph[currentPoint][target] = distanceToTarget;
                 graph[target][currentPoint] = distanceToTarget;
                 Debug.Log("Connected to target waypoint.");
                 break;
-            }
+            }*/
         }
     }
 
