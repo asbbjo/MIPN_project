@@ -6,6 +6,7 @@ public class RRT_drawlines : MonoBehaviour
     //public Text statusText; // UI text to display status (optional)
     public GameObject startWaypoint; // Start waypoint assigned in the Inspector
     public GameObject endWaypoint; // End waypoint assigned in the Inspector
+    public GameObject boundaryObstacle; // Boundary assigned in the Inspector
     public List<GameObject> obstacles; // List of all obstacle objects assigned in the Inspector
     private List<GameObject> newPoints = new List<GameObject>();
     private Dictionary<GameObject, Dictionary<GameObject, float>> graph = new Dictionary<GameObject, Dictionary<GameObject, float>>();
@@ -39,12 +40,19 @@ public class RRT_drawlines : MonoBehaviour
     {
         foreach (var obstacle in obstacles)
         {
-            MeshCollider meshCollider = obstacle.GetComponent<MeshCollider>();
-            if (meshCollider == null)
+            MeshCollider meshCollider_i = obstacle.GetComponent<MeshCollider>();
+            if (meshCollider_i == null)
             {
-                meshCollider = obstacle.AddComponent<MeshCollider>();
+                meshCollider_i = obstacle.AddComponent<MeshCollider>();
                 Debug.Log("Mesh Collider added to " + obstacle.name);
             }
+        }
+
+        MeshCollider meshCollider = boundaryObstacle.GetComponent<MeshCollider>();
+        if (meshCollider == null)
+        {
+            meshCollider = boundaryObstacle.AddComponent<MeshCollider>();
+            Debug.Log("Mesh Collider added to " + boundaryObstacle.name);
         }
     }
 
@@ -90,9 +98,6 @@ public class RRT_drawlines : MonoBehaviour
         // Perform the raycast to check for obstacles
         return Physics.Raycast(ray, distance, layerMask);
     }
-
-
-
 
 
     void GenerateRRTPoints(GameObject start, GameObject target, int numberOfPoints, float maxDistance, int numberOfBranches)
@@ -290,4 +295,3 @@ public class RRT_drawlines : MonoBehaviour
 
 
 }
-
