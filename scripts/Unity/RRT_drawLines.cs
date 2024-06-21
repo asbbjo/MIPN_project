@@ -95,6 +95,15 @@ public class RRT_drawlines : MonoBehaviour
         Ray ray = new Ray(waypoint1.transform.position, direction);
         int layerMask = LayerMask.GetMask("Obstacles"); // Ensure obstacles are on this layer
 
+        /*foreach (var obstacle in obstacles)
+        {   
+            float distanceToObstacle = Vector3.Distance(waypoint1.transform.position, obstacle.transform.position);
+            if (distanceToObstacle < 0.6f * distance)
+            {
+                return true;
+            }
+        }*/
+
         // Perform the raycast to check for obstacles
         return Physics.Raycast(ray, distance, layerMask);
     }
