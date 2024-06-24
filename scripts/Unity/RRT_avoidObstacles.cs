@@ -8,6 +8,10 @@ public class RRT_drawlines : MonoBehaviour
     public GameObject endObject; // End waypoint assigned in the Inspector
     public GameObject boundaryObstacle; // Boundary assigned in the Inspector
     public List<GameObject> obstacles; // List of all obstacle objects assigned in the Inspector
+    public int numberOfPoints;
+    public float maxDistance;
+    public int numberOfBranches;
+    public int threshold;
     private List<GameObject> newPoints = new List<GameObject>();
     private Dictionary<GameObject, Dictionary<GameObject, float>> graph = new Dictionary<GameObject, Dictionary<GameObject, float>>();
 
@@ -26,7 +30,10 @@ public class RRT_drawlines : MonoBehaviour
             return;
         }
 
-        GenerateRRTPoints(startObject, endObject, 100, 3, 6); //#of points, #distance and #number of branches
+        graph[startObject] = new Dictionary<GameObject, float>();
+        graph[endObject] = new Dictionary<GameObject, float>();
+
+        GenerateRRTPoints(startObject, endObject, numberOfPoints, maxDistance, numberOfBranches); //#of points, #distance and #number of branches
         Debug.Log("RRTPoints found."); 
 
         InitializeGraph();
@@ -93,6 +100,7 @@ public class RRT_drawlines : MonoBehaviour
     {
         Vector3 direction = object2.transform.position - object1.transform.position;
         float distance = direction.magnitude;
+        float threshold_obstacles = distance * threshold;
         Ray ray = new Ray(object1.transform.position, direction);
 
         foreach (var obstacle in obstacles)
@@ -102,11 +110,11 @@ public class RRT_drawlines : MonoBehaviour
             if (collider == null) continue;
 
             // Check if the ray intersects the collider
-            if (collider.Raycast(ray, out RaycastHit hitInfo, distance))
+            if (collider.Raycast(ray, out RaycastHit hitInfo, threshold_obstacles))
             {
                 // Check if the closest point on the collider is within the distance
                 Vector3 closestPointToObstacle = collider.ClosestPoint(object1.transform.position);
-                if (Vector3.Distance(object1.transform.position, closestPointToObstacle) < distance)
+                if (Vector3.Distance(object1.transform.position, closestPointToObstacle) < threshold_obstacles)
                 {   
                     return true;
                 }
@@ -118,29 +126,29 @@ public class RRT_drawlines : MonoBehaviour
 
     void GenerateRRTPoints(GameObject start, GameObject target, int numberOfPoints, float maxDistance, int numberOfBranches)
     {
-        GameObject currentPoint = start;
+        GameObject currentObject = start;
 
         for (int i = 0; i < numberOfPoints; i++)
         {
             Vector3 newPoint = new Vector3(
-                Random.Range(currentPoint.transform.position.x - maxDistance, currentPoint.transform.position.x + maxDistance),
-                Random.Range(currentPoint.transform.position.y - maxDistance, currentPoint.transform.position.y + maxDistance),
-                Random.Range(currentPoint.transform.position.z - maxDistance, currentPoint.transform.position.z + maxDistance)
+                Random.Range(currentObject.transform.position.x - maxDistance, currentObject.transform.position.x + maxDistance),
+                Random.Range(currentObject.transform.position.y - maxDistance, currentObject.transform.position.y + maxDistance),
+                Random.Range(currentObject.transform.position.z - maxDistance, currentObject.transform.position.z + maxDistance)
             );
 
-            GameObject newObject = new GameObject("New Waypoint" + i);
+            GameObject newObject = new GameObject("New Waypoint " + i);
             newObject.transform.position = newPoint;
 
 
             for (int j = 0; j < numberOfBranches; j++)
             {
                 Vector3 iterativePoint = new Vector3(
-                    Random.Range(currentPoint.transform.position.x - maxDistance, currentPoint.transform.position.x + maxDistance),
-                    Random.Range(currentPoint.transform.position.y - maxDistance, currentPoint.transform.position.y + maxDistance),
-                    Random.Range(currentPoint.transform.position.z - maxDistance, currentPoint.transform.position.z + maxDistance)
+                    Random.Range(currentObject.transform.position.x - maxDistance, currentObject.transform.position.x + maxDistance),
+                    Random.Range(currentObject.transform.position.y - maxDistance, currentObject.transform.position.y + maxDistance),
+                    Random.Range(currentObject.transform.position.z - maxDistance, currentObject.transform.position.z + maxDistance)
                 );
 
-                GameObject iterativeObject = new GameObject("New Waypoint" + i);
+                GameObject iterativeObject = new GameObject("New Waypoint " + i + "-" + j);
                 iterativeObject.transform.position = iterativePoint;
 
                 float newDist = Vector3.Distance(iterativePoint, target.transform.position);
@@ -155,38 +163,38 @@ public class RRT_drawlines : MonoBehaviour
             
             AddMeshColliderToObject(newObject);
 
-            if (!IsObstacleBetween(currentPoint, newObject))
+            if (!IsObstacleBetween(currentObject, newObject))
             {
-                float distanceToCurrent = Vector3.Distance(currentPoint.transform.position, newObject.transform.position);
+                float distanceToCurrent = Vector3.Distance(currentObject.transform.position, newObject.transform.position);
 
-                if (!graph.ContainsKey(currentPoint))
+                if (!graph.ContainsKey(currentObject))
                 {
-                    graph[currentPoint] = new Dictionary<GameObject, float>();
+                    graph[currentObject] = new Dictionary<GameObject, float>();
                 }
                 if (!graph.ContainsKey(newObject))
                 {
                     graph[newObject] = new Dictionary<GameObject, float>();
                 }
 
-                graph[currentPoint][newObject] = distanceToCurrent;
-                graph[newObject][currentPoint] = distanceToCurrent;
+                graph[currentObject][newObject] = distanceToCurrent;
+                graph[newObject][currentObject] = distanceToCurrent;
 
-                currentPoint = newObject;
+                currentObject = newObject;
                 newPoints.Add(newObject);
                 Debug.Log("Added new waypoint " + newObject.name + " closer to target.");
             }
             else
             {
                 Destroy(newObject);
-                Debug.Log("New waypoint " + i + " is not valid due to obstacles.");
+                Debug.Log("New waypoint " + i + "-X is not valid due to obstacles.");
             }
 
             // Check if the current point is close enough to the target
-            if (Vector3.Distance(currentPoint.transform.position, target.transform.position) < maxDistance)
+            if (Vector3.Distance(currentObject.transform.position, target.transform.position) < maxDistance/2)
             {
-                float distanceToTarget = Vector3.Distance(currentPoint.transform.position, target.transform.position);
-                graph[currentPoint][target] = distanceToTarget;
-                graph[target][currentPoint] = distanceToTarget;
+                float distanceToTarget = Vector3.Distance(currentObject.transform.position, target.transform.position);
+                graph[currentObject][target] = distanceToTarget;
+                graph[target][currentObject] = distanceToTarget;
                 Debug.Log("Connected to target waypoint.");
                 break;
             }
@@ -196,8 +204,6 @@ public class RRT_drawlines : MonoBehaviour
     void InitializeGraph()
     {
         Debug.Log("Initializing graph...");
-        graph[startObject] = new Dictionary<GameObject, float>();
-        graph[endObject] = new Dictionary<GameObject, float>();
 
         foreach (var point in newPoints)
         {
@@ -303,7 +309,7 @@ public class RRT_drawlines : MonoBehaviour
         {
             if (!IsObstacleBetween(path[i], path[i + 1]))
             {
-                Debug.DrawLine(path[i].transform.position, path[i + 1].transform.position, Color.red, 25f);
+                Debug.DrawLine(path[i].transform.position, path[i + 1].transform.position, Color.red, 60f);
                 Debug.Log("Drawing line from " + path[i].name + " to " + path[i + 1].name);
             }
             else
