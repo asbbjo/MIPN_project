@@ -4,8 +4,8 @@ using System.Collections.Generic;
 public class RRT_drawlines : MonoBehaviour
 {
     //public Text statusText; // UI text to display status (optional)
-    public GameObject startWaypoint; // Start waypoint assigned in the Inspector
-    public GameObject endWaypoint; // End waypoint assigned in the Inspector
+    public GameObject startObject; // Start waypoint assigned in the Inspector
+    public GameObject endObject; // End waypoint assigned in the Inspector
     public GameObject boundaryObstacle; // Boundary assigned in the Inspector
     public List<GameObject> obstacles; // List of all obstacle objects assigned in the Inspector
     private List<GameObject> newPoints = new List<GameObject>();
@@ -14,26 +14,27 @@ public class RRT_drawlines : MonoBehaviour
     void Start()
     {
         Debug.Log("Start: Checking assignments before initialization");
-        Debug.Log("startWaypoint: " + (startWaypoint != null ? startWaypoint.name : "null"));
-        Debug.Log("endWaypoint: " + (endWaypoint != null ? endWaypoint.name : "null"));
+        Debug.Log("startObject: " + (startObject != null ? startObject.name : "null"));
+        Debug.Log("endObject: " + (endObject != null ? endObject.name : "null"));
 
         AddMeshCollidersToObstacles();
-        AddMeshCollidersToStartEndPoints();
+        AddMeshCollidersToStartEndObjects();
 
-        if (startWaypoint == null || endWaypoint == null)
+        if (startObject == null || endObject == null)
         {
             Debug.LogError("Start or End waypoint is not assigned. Please assign waypoints in the Inspector.");
             return;
         }
 
-        GenerateRRTPoints(startWaypoint, endWaypoint, 7, 3, 6); //#of points, #distance and #number of branches
+        GenerateRRTPoints(startObject, endObject, 100, 3, 6); //#of points, #distance and #number of branches
         Debug.Log("RRTPoints found."); 
 
         InitializeGraph();
         Debug.Log("Graph initialized.");
 
+
         // Automatically find the path at the start
-        FindPath(startWaypoint, endWaypoint);
+        FindPath(startObject, endObject);
     }
 
     void AddMeshCollidersToObstacles()
@@ -52,23 +53,23 @@ public class RRT_drawlines : MonoBehaviour
         if (meshCollider == null)
         {
             meshCollider = boundaryObstacle.AddComponent<MeshCollider>();
-            Debug.Log("Mesh Collider added to " + boundaryObstacle.name);
+            Debug.Log("Mesh Collider (for boundary) added to " + boundaryObstacle.name);
         }
     }
 
-    void AddMeshCollidersToStartEndPoints()
+    void AddMeshCollidersToStartEndObjects()
     {
-        List<GameObject> points = new List<GameObject> { startWaypoint, endWaypoint };
+        List<GameObject> objects = new List<GameObject> { startObject, endObject };
 
-        foreach (var point in points)
+        foreach (var my_object in objects)
         {
-            if (point != null)
+            if (my_object != null)
             {
-                MeshCollider meshCollider = point.GetComponent<MeshCollider>();
+                MeshCollider meshCollider = my_object.GetComponent<MeshCollider>();
                 if (meshCollider == null)
                 {
-                    meshCollider = point.AddComponent<MeshCollider>();
-                    Debug.Log("Mesh Collider added to " + point.name);
+                    meshCollider = my_object.AddComponent<MeshCollider>();
+                    Debug.Log("Mesh Collider added to " + my_object.name);
                 }
             }
             else
@@ -78,34 +79,40 @@ public class RRT_drawlines : MonoBehaviour
         }
     }
 
-    void AddMeshColliderToPoint(GameObject point)
+    void AddMeshColliderToObject(GameObject new_object)
     {
-        MeshCollider meshCollider = point.GetComponent<MeshCollider>();
+        MeshCollider meshCollider = new_object.GetComponent<MeshCollider>();
         if (meshCollider == null)
         {
-            meshCollider = point.AddComponent<MeshCollider>();
-            Debug.Log("Mesh Collider added to " + point.name);
+            meshCollider = new_object.AddComponent<MeshCollider>();
+            Debug.Log("Mesh Collider added to " + new_object.name);
         }
     }
 
-   bool IsObstacleBetween(GameObject waypoint1, GameObject waypoint2)
+   bool IsObstacleBetween(GameObject object1, GameObject object2)
     {
-        Vector3 direction = waypoint2.transform.position - waypoint1.transform.position;
+        Vector3 direction = object2.transform.position - object1.transform.position;
         float distance = direction.magnitude;
-        Ray ray = new Ray(waypoint1.transform.position, direction);
-        int layerMask = LayerMask.GetMask("Obstacles"); // Ensure obstacles are on this layer
+        Ray ray = new Ray(object1.transform.position, direction);
 
-        /*foreach (var obstacle in obstacles)
-        {   
-            float distanceToObstacle = Vector3.Distance(waypoint1.transform.position, obstacle.transform.position);
-            if (distanceToObstacle < 0.6f * distance)
+        foreach (var obstacle in obstacles)
+        {
+            // Ensure the obstacle has a collider
+            Collider collider = obstacle.GetComponent<Collider>();
+            if (collider == null) continue;
+
+            // Check if the ray intersects the collider
+            if (collider.Raycast(ray, out RaycastHit hitInfo, distance))
             {
-                return true;
+                // Check if the closest point on the collider is within the distance
+                Vector3 closestPointToObstacle = collider.ClosestPoint(object1.transform.position);
+                if (Vector3.Distance(object1.transform.position, closestPointToObstacle) < distance)
+                {   
+                    return true;
+                }
             }
-        }*/
-
-        // Perform the raycast to check for obstacles
-        return Physics.Raycast(ray, distance, layerMask);
+        }
+        return false;
     }
 
 
@@ -146,7 +153,7 @@ public class RRT_drawlines : MonoBehaviour
                 }
             }
             
-            AddMeshColliderToPoint(newObject);
+            AddMeshColliderToObject(newObject);
 
             if (!IsObstacleBetween(currentPoint, newObject))
             {
@@ -189,8 +196,8 @@ public class RRT_drawlines : MonoBehaviour
     void InitializeGraph()
     {
         Debug.Log("Initializing graph...");
-        graph[startWaypoint] = new Dictionary<GameObject, float>();
-        graph[endWaypoint] = new Dictionary<GameObject, float>();
+        graph[startObject] = new Dictionary<GameObject, float>();
+        graph[endObject] = new Dictionary<GameObject, float>();
 
         foreach (var point in newPoints)
         {
@@ -200,13 +207,13 @@ public class RRT_drawlines : MonoBehaviour
             }
         }
 
-        // Connect startWaypoint to the first new point
-        if (newPoints.Count > 0 && !IsObstacleBetween(startWaypoint, newPoints[0]))
+        // Connect startObject to the first new point
+        if (newPoints.Count > 0 && !IsObstacleBetween(startObject, newPoints[0]))
         {
-            float distance = Vector3.Distance(startWaypoint.transform.position, newPoints[0].transform.position);
-            graph[startWaypoint][newPoints[0]] = distance;
-            graph[newPoints[0]][startWaypoint] = distance;
-            Debug.Log("Added edge from " + startWaypoint.name + " to " + newPoints[0].name + " with distance " + distance);
+            float distance = Vector3.Distance(startObject.transform.position, newPoints[0].transform.position);
+            graph[startObject][newPoints[0]] = distance;
+            graph[newPoints[0]][startObject] = distance;
+            Debug.Log("Added edge from " + startObject.name + " to " + newPoints[0].name + " with distance " + distance);
         }
 
         // Connect all new points to each other sequentially
@@ -221,13 +228,13 @@ public class RRT_drawlines : MonoBehaviour
             }
         }
 
-        // Connect the last new point to endWaypoint
-        if (newPoints.Count > 0 && !IsObstacleBetween(newPoints[newPoints.Count - 1], endWaypoint))
+        // Connect the last new point to endObject
+        if (newPoints.Count > 0 && !IsObstacleBetween(newPoints[newPoints.Count - 1], endObject))
         {
-            float distance = Vector3.Distance(newPoints[newPoints.Count - 1].transform.position, endWaypoint.transform.position);
-            graph[newPoints[newPoints.Count - 1]][endWaypoint] = distance;
-            graph[endWaypoint][newPoints[newPoints.Count - 1]] = distance;
-            Debug.Log("Added edge from " + newPoints[newPoints.Count - 1].name + " to " + endWaypoint.name + " with distance " + distance);
+            float distance = Vector3.Distance(newPoints[newPoints.Count - 1].transform.position, endObject.transform.position);
+            graph[newPoints[newPoints.Count - 1]][endObject] = distance;
+            graph[endObject][newPoints[newPoints.Count - 1]] = distance;
+            Debug.Log("Added edge from " + newPoints[newPoints.Count - 1].name + " to " + endObject.name + " with distance " + distance);
         }
     }
 
