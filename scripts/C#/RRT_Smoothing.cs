@@ -19,7 +19,7 @@ public class RRT : MonoBehaviour
     private List<GameObject> tree = new List<GameObject>();
     private Dictionary<GameObject, Dictionary<GameObject, float>> graph = new Dictionary<GameObject, Dictionary<GameObject, float>>();
     private Dictionary<GameObject, Dictionary<GameObject, float>> graphSmooth = new Dictionary<GameObject, Dictionary<GameObject, float>>();
-    List<GameObject> PruebaObjetos = new List<GameObject>();
+    List<GameObject> smoothObjects = new List<GameObject>();
     List<Vector3> NewPointsSmoothed = new List<Vector3>();
     List<Vector3> NewPointsSmoothedBIS = new List<Vector3>();
     List<Vector3> NewPointsSmoothedFinal = new List<Vector3>();
@@ -33,8 +33,7 @@ public class RRT : MonoBehaviour
         AddMeshCollidersToObstacles();
         AddMeshCollidersToStartEndObjects();
 
-        if (startObject == null || endObject == null)
-        {
+        if (startObject == null || endObject == null){
             UnityEngine.Debug.LogError("Start or End waypoint is not assigned. Please assign waypoints in the Inspector.");
             return;
         }
@@ -46,18 +45,14 @@ public class RRT : MonoBehaviour
         VisualizePath(newPoints, Color.red);
         newPoints = PathPruning (newPoints);
         VisualizePath(newPoints, Color.green);
-        //NewPointsSmoothed = SmoothPathRRT1(newPoints, endObject, startObject);
         NewPointsSmoothedFinal=SmoothPathRRT1(newPoints, endObject, startObject);
         
         for(int l=0 ; l < NewPointsSmoothedFinal.Count ; l++){
-            UnityEngine.Debug.Log("nodo nro:"+l);
             GameObject newObject = new GameObject("New Waypoint Smooth" + l);
             newObject.transform.position=NewPointsSmoothedFinal[l];
-            PruebaObjetos.Add(newObject);
-    }
-        VisualizePath(PruebaObjetos, Color.blue);
-
-
+            smoothObjects.Add(newObject);
+        }
+        VisualizePath(smoothObjects, Color.blue);
     }
 
 List<GameObject> PathPruning (List<GameObject> newPoints ){
@@ -290,7 +285,7 @@ void VisualizePath(List<GameObject> path, Color color){
         UnityEngine.Debug.DrawLine(path[i].transform.position, path[i + 1].transform.position, color, 5000f);
         UnityEngine.Debug.Log("Drawing line from " + path[i].name + " to " + path[i + 1].name);
     }
-}
+    }
 
 
 Vector3 CrossProduct(Vector3 v1, Vector3 v2){
@@ -308,10 +303,6 @@ List<Vector3> SmoothPathRRT1(List<GameObject> waypoints, GameObject endObject, G
     List<GameObject> NewObjectsSmoothed = new List<GameObject>();
     GameObject ObjectA = new GameObject("ObjectA");
     GameObject ObjectB = new GameObject("ObjectB");
-    List<Vector3> Prueba3D = new List<Vector3>();
-    List<float> z3D = new List<float>();
-    List<float> z3DPOINTS = new List<float>();
-    List<GameObject> PruebaObjetos = new List<GameObject>();
     bool HitsObstacle = false;
     int count=0;
     List<Vector2> Points2D = new List<Vector2>();
@@ -329,25 +320,29 @@ List<Vector3> SmoothPathRRT1(List<GameObject> waypoints, GameObject endObject, G
     Vector4 P2_4D = new Vector4();
     Vector4 P3_4D = new Vector4();
         
-    P0_3D=waypoints[0].transform.position;
+    P0_3D=waypoints[0].transform.position; //First point of the path
     for (int i = 1; i <= waypoints.Count - 2; i=i+1){
         UnityEngine.Debug.Log("iteracion " + i);
         P2_3D=waypoints[i].transform.position;
         P3_3D=waypoints[i+1].transform.position;
+
+        //Transformation to 2D for the Bezier curve application. 
+        //P0 needs to be translated to the origin
 
         ux = (P2_3D - P0_3D).normalized;
         uy = (P3_3D - P2_3D).normalized;
         uz = CrossProduct(ux, uy);
         uy = CrossProduct(ux,uz);
 
-        float[,] TM = {
+        float[,] TM = { //Transformation matrix
             { ux.x , uy.x , uz.x , P0_3D.x },
             { ux.y , uy.y , uz.y , P0_3D.y },
             { ux.z , uy.z , uz.z , P0_3D.z },
             {   0 ,    0 ,    0 ,    1     }
         };
 
-        float[,] TM_inv = CalcularInversa(TM);
+        //3D points to 2D plane
+        float[,] TM_inv = InverseMatrix(TM); 
         P0_4D = new Vector4 (P0_3D.x, P0_3D.y, P0_3D.z, 1f);
         P2_4D = new Vector4(P2_3D.x, P2_3D.y, P2_3D.z, 1f);
         P3_4D = new Vector4(P3_3D.x, P3_3D.y, P3_3D.z, 1f);
@@ -355,74 +350,51 @@ List<Vector3> SmoothPathRRT1(List<GameObject> waypoints, GameObject endObject, G
         Vector4 MP2_4D = MultMatrix_vector(TM_inv , P2_4D);
         Vector4 MP3_4D = MultMatrix_vector(TM_inv , P3_4D);
 
-        UnityEngine.Debug.Log("Puntos MP0_3D: " + MP0_4D.x + "---" + MP0_4D.y + "---"+MP0_4D.z + "---"+MP0_4D.w);
-        UnityEngine.Debug.Log("Puntos MP2_3D: " + MP2_4D.x + "---" + MP2_4D.y + "---"+MP2_4D.z + "---"+MP2_4D.w);
-        UnityEngine.Debug.Log("Puntos MP3_3D: " + MP3_4D.x + "---" + MP3_4D.y + "---"+MP3_4D.z + "---"+MP3_4D.w);
-
+        //2D vectors to work the Bezier Curve
         
-        Vector2 P0 =new Vector2 (MP0_4D.x, MP0_4D.y);
+        Vector2 P0 = new Vector2 (MP0_4D.x, MP0_4D.y);
         Vector2 P2 = new Vector2(MP2_4D.x, MP2_4D.y);
         Vector2 P3 = new Vector2(MP3_4D.x, MP3_4D.y);
 
-        float titadeg =180f - Vector2.Angle((P0-P2),(P3-P2));
-        float tita = titadeg * Mathf.PI /180;
-        float beta = tita/2;
-        float k = Vector3.Distance(P2,P3);
-        float h = k * (4.58f) / (6 * Mathf.Cos(tita));
-        float g = 0.58f * h;
-        
-        float kMax = 2 * h * Mathf.Sin(tita)/(3*k*k);
-        float dMax = 1.1228f * Mathf.Sin(beta)/(kMax*Mathf.Cos(beta)*Mathf.Cos(beta));
-     
-
         Vector2 u1 = (P0 - P2).normalized; //P2P0 
         Vector2 u2 = (P3 - P2).normalized; //P2P3
-        Vector2 P1 = P0 - u1 * g;
+        UnityEngine.Debug.Log("u1: " + u1);
+        UnityEngine.Debug.Log("u2: " + u2);
+        //Vector2 P1 = P0 - u1 * g;
+        //Distance between points
         float D32=(P3-P2).magnitude;
-
         float D02=(P0-P2).magnitude;
-        UnityEngine.Debug.Log("medida D32= " + D32);
-        UnityEngine.Debug.Log("medida D02= " + D02);
-        float d = 0f;
-        if(D32<D02){
-            d=D32/2;
-        }
-        else{
-            d=D02/2;
-        }
-    UnityEngine.Debug.Log("medida d= " + d);
-    //float d = 0.03f*D.magnitude/Mathf.Sin(tita);
-    count=0;
-    do{
-    HitsObstacle = false;
-    /*float hb = 0.346f*d;
-    float gb = 0.58f*hb;
-    float kb = 1.31f * hb * Mathf.Cos(beta);
-    float he = hb;
-    float ge = 0.58f * hb;
-    float ke = 1.31f * hb * Mathf.Cos(beta);
-*/
-    //u1 = (P2-P1).normalized;
-
-        Vector2 B0 = P0; //P2 + d * u1; //P0
-        Vector2 B1 = P2 + (D02/2) * u1;
-        Vector2 B2 = B1 - (D02/4) * u1;
+        UnityEngine.Debug.Log("D32: " + D32);
+        UnityEngine.Debug.Log("D02: " + D02);
         
-        Vector2 E3 = P3- (D32/2) * u2;
-        Vector2 E2 = P2 + (D32/4) * u2;
-        Vector2 E1 = E2 - (D32/8) * u2;
+        count=0;
+        do{
+        HitsObstacle = false;
+            smoothedPath2D.Clear();
+            Points2D.Clear();
+            Vector2 B0 = P0; 
+            Vector2 B1 = B0 - (D02/2) * u1;
+            Vector2 B2 = B1 - (D02/4) * u1;
+            
+            Vector2 E3 = P3- (D32/2) * u2;
+            Vector2 E2 = P2 + (D32/4) * u2;
+            Vector2 E1 = E2 - (D32/8) * u2;
 
-        Vector2 ud = (E1-B2).normalized;
-        Vector2 B3 = B2 + ud * (ud.magnitude)/2;
+            float DM = (E1-B2).magnitude;
+            Vector2 ud = (E1-B2).normalized;
+            Vector2 B3 = B2 + ud * (DM)/2;
 
-        Vector2 E0 = E1 - ud * (ud.magnitude)/2;
+            Vector2 E0 = E1 - ud * (DM)/2;
 
             // Generate points along the first Bezier curve
             List<Vector2> curve1Points = GenerateBezierCurve(B0, B1, B2,B3); //new List<Vector2>{B0, B1, B2, B3};//
             List<Vector2> BPoints = new List<Vector2>{B0, B1, B2, B3};//
             // Generate points along the second Bezier curve
-            List<Vector2> curve2Points =GenerateBezierCurve(E0, E1, E2, E3);// new List<Vector2>{E0, E1, E2, E3}; //
+            List<Vector2> curve2Points = GenerateBezierCurve(E0, E1, E2, E3);// new List<Vector2>{E0, E1, E2, E3}; //
             List<Vector2> EPoints = new List<Vector2>{E0, E1, E2, E3}; //
+
+            UnityEngine.Debug.Log("Points in iteration i= "+ i+": " +P0_3D+P2_3D+P3_3D);
+            UnityEngine.Debug.Log("Points in list: EPoints, i= "+ i+": " + E0+ E1+E2+ E3);
             // Add the points of curve1Points to smoothedPath (excluding duplicates)
             foreach (var point in curve1Points){
                 if (!smoothedPath2D.Contains(point)){smoothedPath2D.Add(point);}
@@ -442,50 +414,48 @@ List<Vector3> SmoothPathRRT1(List<GameObject> waypoints, GameObject endObject, G
                 if (!Points2D.Contains(point)){Points2D.Add(point);}
             }
 
-            smoothedPath =  ConvertTo3D(smoothedPath2D, TM, "xy");
-            Points3D=ConvertTo3D(Points2D, TM, "xy");
+            smoothedPath =  ConvertTo3D(smoothedPath2D, TM);
+            Points3D=ConvertTo3D(Points2D, TM);
+            UnityEngine.Debug.Log("Points B0,B1, B2,B3,E0,E1,E2,E3" + Points3D[0]+Points3D[1]+Points3D[2]+Points3D[3]+Points3D[4]+Points3D[5]+Points3D[6]);
+                
             smoothedPath2D.Clear();
             Points2D.Clear();
-
+            
             for(int j = 0; j < smoothedPath.Count-1; j++){
                 ObjectA.transform.position=smoothedPath[j];
                 ObjectB.transform.position=smoothedPath[j + 1];
-                UnityEngine.Debug.Log("Distancia entre puntos: "+ (Vector3.Distance(smoothedPath[j],smoothedPath[j+1])));
                 if((Vector3.Distance(smoothedPath[j],smoothedPath[j+1]))>10){
                     if(IsObstacleBetween(ObjectA, ObjectB)){
-                        UnityEngine.Debug.Log("Entra en obstacleBetween para iteracion " + i);
-                        d = d*0.2f; 
+                        UnityEngine.Debug.Log("Hits and obstacle");
+                        D32 = D32*0.5f; 
+                        D02 = D02*0.5f; 
                         HitsObstacle=true;
                         count++;
                         if(count == 16){
-                           //d=0.03f*d;
+                        //d=0.03f*d;
                         }
                     }
-                }
-                else{UnityEngine.Debug.Log("Distancia entre puntos: "+ (Vector3.Distance(smoothedPath[j],smoothedPath[j+1])));}
-                   
+                }       
             }
         }while(HitsObstacle && count <16);
-
+        /*
         if(count <16){
-            UnityEngine.Debug.Log("Se usa d= "+ d+ "para iteracion " + i);
-            NewPointsSmoothed.AddRange(smoothedPath);
-            P0_3D=NewPointsSmoothed[NewPointsSmoothed.Count-1];
-            UnityEngine.Debug.Log("cantidad de nodos en NewPointsSmoothed:"+ NewPointsSmoothed.Count);
+            NewPointsSmoothed.AddRange(Points3D);
+            UnityEngine.Debug.Log("The curve is applying D32: " + D32 + "D02:"+ D02);
         }
         else{
-            UnityEngine.Debug.Log("No se encontro d para iteracion " + i);
-            NewPointsSmoothed.AddRange(smoothedPath);
+            NewPointsSmoothed.AddRange(Points3D);
             //NewPointsSmoothed.AddRange(Points3D);
-            P0_3D=NewPointsSmoothed[NewPointsSmoothed.Count-1];
-        }
+        }*/
+        NewPointsSmoothed.AddRange(smoothedPath);
+        UnityEngine.Debug.Log("The curve is applying D32: " + D32 + "D02:"+ D02);
+        P0_3D=NewPointsSmoothed[NewPointsSmoothed.Count-1];
+        UnityEngine.Debug.Log("P03D: " + P0_3D);
     }
-    //PruebaObjetos.Add(endObject);
     return NewPointsSmoothed;}
 
 
-Vector2 BezierCurvePoint(float t, Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3)
-    {
+Vector2 BezierCurvePoint(float t, Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3){
     float u = 1 - t;
     float tt = t * t;
     float uu = u * u;
@@ -497,8 +467,7 @@ Vector2 BezierCurvePoint(float t, Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3
     p += 3 * u * tt * p2; // 3 * (1-t) * t^2 * P2
     p += ttt * p3;        // t^3 * P3
 
-    return p;
-    }
+    return p;}
 
 
 Vector4 MultMatrix_vector(float[,] M,Vector4 P){
@@ -507,12 +476,12 @@ Vector4 MultMatrix_vector(float[,] M,Vector4 P){
         PN.y = M[1, 0] * P.x + M[1, 1] * P.y +M[1, 2] * P.z+ M[1, 3] * P.w;
         PN.z = M[2, 0] * P.x + M[2, 1] * P.y + M[2, 2] * P.z+ M[2, 3] * P.w;
         PN.w = M[3, 0] * P.x + M[3, 1] * P.y + M[3, 2] * P.z+ M[3, 3] * P.w;
-        return PN;
-}
+        return PN;}
 
     // Function to generate points along a cubic Bezier curve
     List<Vector2> GenerateBezierCurve(Vector2 P0, Vector2 P1, Vector2 P2, Vector2 P3)
     {
+        UnityEngine.Debug.Log("Brezier applied");
         List<Vector2> curvePoints = new List<Vector2>();
         float tStep = 0.05f; // Step size for interpolation
 
@@ -531,126 +500,97 @@ Vector4 MultMatrix_vector(float[,] M,Vector4 P){
 
 
 
-List<Vector3> ConvertTo3D(List<Vector2> points2D,float[,] M, string plane)
-{
+List<Vector3> ConvertTo3D(List<Vector2> points2D,float[,] M){
     List<Vector3> points3DFinal = new List<Vector3>();
     Vector3 point3D = new Vector3();
     Vector4 point4D = new Vector4 ();
     int i=0;
-    foreach (var point in points2D)
-    {   UnityEngine.Debug.Log("Puntos 2D de ConvertTo3D: " + point3D.x + "," + point3D.y);
-        if(plane=="xy"){point4D = new Vector4(point.x, point.y,0f,1f);}
-        if(plane=="xz"){point4D = new Vector4(point.x,0f, point.y,1f);}
-        if(plane=="yz"){point4D = new Vector4(0f,point.x,point.y,1f);}
+    foreach (var point in points2D){   
+        point4D = new Vector4(point.x, point.y,0f,1f);
         point4D = MultMatrix_vector(M, point4D);
         point3D= new Vector3(point4D.x, point4D.y,point4D.z);
         points3DFinal.Add(point3D);
-        UnityEngine.Debug.Log("Puntos de ConvertTo3D: " + point3D.x + "," + point3D.y + "," + point3D.z);
         i++;
     }
-    
-
-    return points3DFinal;
-}
+    return points3DFinal;}
 
 
-static float[,] CalcularInversa(float[,] matriz)
-    {
-        int n = matriz.GetLength(0);
-        float[,] adjunta = new float[n, n];
-        float det = Determinante(matriz);
+static float[,] InverseMatrix(float[,] matrix){
+    int n = matrix.GetLength(0);
+    float[,] adjoint = new float[n, n];
+    float det = DetMat(matrix);
 
-        if (det == 0)
-        {
-            throw new InvalidOperationException("La matriz no tiene inversa (es singular).");
-        }
-
-        float[,] cofactor = new float[n, n];
-
-        for (int i = 0; i < n; i++)
-        {
-            for (int j = 0; j < n; j++)
-            {
-                cofactor[i, j] = Mathf.Pow(-1, i + j) * Determinante(Submatriz(matriz, i, j));
-            }
-        }
-
-        // Transponer la matriz de cofactores para obtener la adjunta
-        for (int i = 0; i < n; i++)
-        {
-            for (int j = 0; j < n; j++)
-            {
-                adjunta[j, i] = cofactor[i, j];
-            }
-        }
-
-        // Calcular la matriz inversa
-        float[,] inversa = new float[n, n];
-        for (int i = 0; i < n; i++)
-        {
-            for (int j = 0; j < n; j++)
-            {
-                inversa[i, j] = adjunta[i, j] / det;
-            }
-        }
-
-        return inversa;
+    if (det == 0){
+        throw new InvalidOperationException("La matriz no tiene inversa (es singular).");
     }
 
-    static float Determinante(float[,] matriz)
-    {
-        int n = matriz.GetLength(0);
-        if (n != matriz.GetLength(1))
-        {
-            throw new ArgumentException("La matriz debe ser cuadrada para calcular el determinante.");
-        }
+    float[,] cofactor = new float[n, n];
 
-        if (n == 1)
-        {
-            return matriz[0, 0];
+    for (int i = 0; i < n; i++){
+        for (int j = 0; j < n; j++){
+            cofactor[i, j] = Mathf.Pow(-1, i + j) * DetMat(Submatrix(matrix, i, j));
         }
-
-        if (n == 2)
-        {
-            return matriz[0, 0] * matriz[1, 1] - matriz[0, 1] * matriz[1, 0];
-        }
-
-        float determinante = 0.0f;
-        for (int j = 0; j < n; j++)
-        {
-            determinante += Mathf.Pow(-1, j) * matriz[0, j] * Determinante(Submatriz(matriz, 0, j));
-        }
-
-        return determinante;
     }
 
-    static float[,] Submatriz(float[,] matriz, int filaEliminar, int columnaEliminar)
-    {
-        int n = matriz.GetLength(0);
-        float[,] submatriz = new float[n - 1, n - 1];
-        int filaDestino = 0;
-        int columnaDestino = 0;
+    for (int i = 0; i < n; i++){
+        for (int j = 0; j < n; j++){
+            adjoint[j, i] = cofactor[i, j];
+        }
+    }
 
-        for (int fila = 0; fila < n; fila++)
+    float[,] inverse = new float[n, n];
+    for (int i = 0; i < n; i++){
+        for (int j = 0; j < n; j++){
+            inverse[i, j] = adjoint[i, j] / det;
+        }
+    }
+
+    return inverse;}
+
+static float DetMat(float[,] matrix){
+    int n = matrix.GetLength(0);
+    if (n != matrix.GetLength(1)){
+        throw new ArgumentException("La matriz debe ser cuadrada para calcular el determinante.");
+    }
+
+    if (n == 1){return matrix[0, 0];}
+
+    if (n == 2){return matrix[0, 0] * matrix[1, 1] - matrix[0, 1] * matrix[1, 0];}
+
+    float det = 0.0f;
+    for (int j = 0; j < n; j++){
+        det += Mathf.Pow(-1, j) * matrix[0, j] * DetMat(Submatrix(matrix, 0, j));
+    }
+
+    return det;}
+
+    static float[,] Submatrix(float[,] matrix, int rowToEliminate, int columnToEliminate)
+    {
+        int n = matrix.GetLength(0);
+        float[,] submatrix = new float[n - 1, n - 1];
+        int rowGoal = 0;
+        int columnGoal = 0;
+
+        for (int row = 0; row < n; row++)
         {
-            if (fila == filaEliminar)
+            if (row == rowToEliminate)
                 continue;
 
-            columnaDestino = 0;
+            columnGoal = 0;
 
-            for (int columna = 0; columna < n; columna++)
+            for (int column = 0; column < n; column++)
             {
-                if (columna == columnaEliminar)
+                if (column == columnToEliminate)
                     continue;
 
-                submatriz[filaDestino, columnaDestino] = matriz[fila, columna];
-                columnaDestino++;
+                submatrix[rowGoal, columnGoal] = matrix[row, column];
+                columnGoal++;
             }
 
-            filaDestino++;
+            rowGoal++;
         }
 
-        return submatriz;
+        return submatrix;
     }
 
 }
