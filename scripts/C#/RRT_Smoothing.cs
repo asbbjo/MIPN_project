@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System;
 using System.Diagnostics; // Necesario para usar Stopwatch
 
-public class RRT_Smoothing : MonoBehaviour
+public class RRT : MonoBehaviour
 {
     //public Text statusText; // UI text to display status (optional)
     public GameObject startObject; // Start waypoint assigned in the Inspector
@@ -64,15 +64,13 @@ List<GameObject> PathPruning (List<GameObject> newPoints ){
     int N = newPoints.Count;
     List<GameObject> newPointsPruned = new List<GameObject>();
     List<GameObject> newPointsPrunedOK = new List<GameObject>();
-
-    //
     int j=N-1;
     newPointsPruned.Add(newPoints[j]);
     while(j>1){
         for(int i=1 ; i<j ; i++){
             if(!IsObstacleBetween(newPoints[j], newPoints[i])){
-                newPointsPruned.Add(newPoints[i]);
-                j=i;
+                    newPointsPruned.Add(newPoints[i]);
+                    j=i;
             }
         }
 
@@ -89,8 +87,7 @@ List<GameObject> PathPruning (List<GameObject> newPoints ){
     foreach (GameObject obj in newPointsPruned) {
         UnityEngine.Debug.Log(obj);
     }
-    return newPointsPrunedOK;
-}
+    return newPointsPrunedOK;}
 
 void AddMeshCollidersToObstacles(){
         foreach (var obstacle in obstacles)
@@ -138,57 +135,45 @@ void AddMeshColliderToObject(GameObject new_object){
             UnityEngine.Debug.Log("Mesh Collider added to " + new_object.name);
         }}
 
-bool IsObstacleBetween(GameObject object1, GameObject object2)
-    {
-        Vector3 direction = (object2.transform.position - object1.transform.position);
-        float distance = direction.magnitude;
-        float threshold_obstacles = distance * threshold;
-        Ray ray = new Ray(object1.transform.position, direction);
+bool IsObstacleBetween(GameObject object1, GameObject object2){
+    Vector3 direction = (object2.transform.position - object1.transform.position);
+    float distance = direction.magnitude;
+    float threshold_obstacles = distance * threshold;
+    Ray ray = new Ray(object1.transform.position, direction);
 
-        foreach (var obstacle in obstacles)
-        {
-            // Ensure the obstacle has a collider
-            Collider collider = obstacle.GetComponent<Collider>();
-            if (collider == null) continue;
+    foreach (var obstacle in obstacles){
+        // Ensure the obstacle has a collider
+        Collider collider = obstacle.GetComponent<Collider>();
+        if (collider == null) continue;
 
-            // Check if the ray intersects the collider
-            if (collider.Raycast(ray, out RaycastHit hitInfo, threshold_obstacles))
-            {
-                // Check if the closest point on the collider is within the distance
-                Vector3 closestPointToObstacle = collider.ClosestPoint(object1.transform.position);
-                if (Vector3.Distance(object1.transform.position, closestPointToObstacle) < threshold_obstacles)
-                {   
-                    return true;
+        // Check if the ray intersects the collider
+        if (collider.Raycast(ray, out RaycastHit hitInfo, threshold_obstacles)){
+            // Check if the closest point on the collider is within the distance
+            Vector3 closestPointToObstacle = collider.ClosestPoint(object1.transform.position);
+            if (Vector3.Distance(object1.transform.position, closestPointToObstacle) < threshold_obstacles){   
+                return true;
                 }
-            }
         }
-        return false;
     }
+    return false;}
 
 
-void GenerateRRTPoints(GameObject start, GameObject target, int numberOfPoints, float maxDistance, int numberOfBranches)
-    {
-        GameObject currentObject = start;
-        //newPoints.Add(start);
+void GenerateRRTPoints(GameObject start, GameObject target, int numberOfPoints, float maxDistance, int numberOfBranches){
+    GameObject currentObject = start;
+    for (int i = 0; i < numberOfPoints; i++){
+        Vector3 newPoint = new Vector3(
+        UnityEngine.Random.Range(currentObject.transform.position.x - maxDistance, currentObject.transform.position.x + maxDistance),
+        UnityEngine.Random.Range(currentObject.transform.position.y - maxDistance, currentObject.transform.position.y + maxDistance),
+        UnityEngine.Random.Range(currentObject.transform.position.z - maxDistance, currentObject.transform.position.z + maxDistance));
 
-        for (int i = 0; i < numberOfPoints; i++)
-        {
-            Vector3 newPoint = new Vector3(
-                UnityEngine.Random.Range(currentObject.transform.position.x - maxDistance, currentObject.transform.position.x + maxDistance),
-                UnityEngine.Random.Range(currentObject.transform.position.y - maxDistance, currentObject.transform.position.y + maxDistance),
-                UnityEngine.Random.Range(currentObject.transform.position.z - maxDistance, currentObject.transform.position.z + maxDistance)
-            );
+        GameObject newObject = new GameObject("New Waypoint " + i);
+        newObject.transform.position = newPoint;
 
-            GameObject newObject = new GameObject("New Waypoint " + i);
-            newObject.transform.position = newPoint;
-
-
-            for (int j = 0; j < numberOfBranches; j++)
-            {
-                Vector3 iterativePoint = new Vector3(
-                    UnityEngine.Random.Range(currentObject.transform.position.x - maxDistance, currentObject.transform.position.x + maxDistance),
-                    UnityEngine.Random.Range(currentObject.transform.position.y - maxDistance, currentObject.transform.position.y + maxDistance),
-                    UnityEngine.Random.Range(currentObject.transform.position.z - maxDistance, currentObject.transform.position.z + maxDistance)
+        for (int j = 0; j < numberOfBranches; j++){
+            Vector3 iterativePoint = new Vector3(
+            UnityEngine.Random.Range(currentObject.transform.position.x - maxDistance, currentObject.transform.position.x + maxDistance),
+            UnityEngine.Random.Range(currentObject.transform.position.y - maxDistance, currentObject.transform.position.y + maxDistance),
+            UnityEngine.Random.Range(currentObject.transform.position.z - maxDistance, currentObject.transform.position.z + maxDistance)
                 );
 
                 GameObject iterativeObject = new GameObject("New Waypoint " + i + "-" + j);
@@ -202,93 +187,41 @@ void GenerateRRTPoints(GameObject start, GameObject target, int numberOfPoints, 
                     newObject = iterativeObject;
                     newPoint = iterativePoint;
                 }
-            }
+        }
             
-            AddMeshColliderToObject(newObject);
+        AddMeshColliderToObject(newObject);
 
-            if (!IsObstacleBetween(currentObject, newObject))
-            {
-                float distanceToCurrent = Vector3.Distance(currentObject.transform.position, newObject.transform.position);
+        if (!IsObstacleBetween(currentObject, newObject)){
+            float distanceToCurrent = Vector3.Distance(currentObject.transform.position, newObject.transform.position);
 
-                if (!graph.ContainsKey(currentObject))
-                {
-                    graph[currentObject] = new Dictionary<GameObject, float>();
-                }
-                if (!graph.ContainsKey(newObject))
-                {
-                    graph[newObject] = new Dictionary<GameObject, float>();
-                }
+            if (!graph.ContainsKey(currentObject)){graph[currentObject] = new Dictionary<GameObject, float>();}
+            if (!graph.ContainsKey(newObject)){graph[newObject] = new Dictionary<GameObject, float>();}
 
-                graph[currentObject][newObject] = distanceToCurrent;
-                graph[newObject][currentObject] = distanceToCurrent;
+            graph[currentObject][newObject] = distanceToCurrent;
+            graph[newObject][currentObject] = distanceToCurrent;
 
-                currentObject = newObject;
-                newPoints.Add(newObject);
-                //UnityEngine.Debug.Log("Added new waypoint " + newObject.name + " closer to target.");
-            }
-            else
-            {
-                Destroy(newObject);
-                //UnityEngine.Debug.Log("New waypoint " + i + "-X is not valid due to obstacles.");
-            }
+            currentObject = newObject;
+            newPoints.Add(newObject);
+        }
+        else{
+            Destroy(newObject);
+            UnityEngine.Debug.Log("New waypoint " + i + "-X is not valid due to obstacles.");
+        }
 
             // Check if the current point is close enough to the target
-            if (Vector3.Distance(currentObject.transform.position, target.transform.position) < maxDistance/2)
-            {
-                float distanceToTarget = Vector3.Distance(currentObject.transform.position, target.transform.position);
-                graph[currentObject][target] = distanceToTarget;
-                graph[target][currentObject] = distanceToTarget;
-                //UnityEngine.Debug.Log("Connected to target waypoint.");
-                break;
-            }
-        }
-        newPoints.Add(target);
-    }
-
-
-
-void InitializeGraph()
-    {
-        UnityEngine.Debug.Log("Initializing graph...");
-
-        foreach (var point in tree)
-        {
-            if (!graph.ContainsKey(point))
-            {
-                graph[point] = new Dictionary<GameObject, float>();
-            }
-        }
-
-        // Connect startObject to the first new point
-        if (newPoints.Count > 0 && !IsObstacleBetween(startObject, newPoints[0]))
-        {
-            float distance = Vector3.Distance(startObject.transform.position, newPoints[0].transform.position);
-            graph[startObject][newPoints[0]] = distance;
-            graph[newPoints[0]][startObject] = distance;
-            UnityEngine.Debug.Log("Added edge from " + startObject.name + " to " + newPoints[0].name + " with distance " + distance);
-        }
-
-        // Connect all new points to each other sequentially
-        for (int i = 0; i < newPoints.Count - 1; i++)
-        {
-            if (!IsObstacleBetween(newPoints[i], newPoints[i + 1]))
-            {
-                float distance = Vector3.Distance(newPoints[i].transform.position, newPoints[i + 1].transform.position);
-                graph[newPoints[i]][newPoints[i + 1]] = distance;
-                graph[newPoints[i + 1]][newPoints[i]] = distance;
-                UnityEngine.Debug.Log("Added edge from " + newPoints[i].name + " to " + newPoints[i + 1].name + " with distance " + distance);
-            }
-        }
-
-        // Connect the last new point to endObject
-        if (newPoints.Count > 0 && !IsObstacleBetween(newPoints[newPoints.Count - 1], endObject))
-        {
-            float distance = Vector3.Distance(newPoints[newPoints.Count - 1].transform.position, endObject.transform.position);
-            graph[newPoints[newPoints.Count - 1]][endObject] = distance;
-            graph[endObject][newPoints[newPoints.Count - 1]] = distance;
-            UnityEngine.Debug.Log("Added edge from " + newPoints[newPoints.Count - 1].name + " to " + endObject.name + " with distance " + distance);
+        if (Vector3.Distance(currentObject.transform.position, target.transform.position) < maxDistance/2){
+            float distanceToTarget = Vector3.Distance(currentObject.transform.position, target.transform.position);
+            graph[currentObject][target] = distanceToTarget;
+            graph[target][currentObject] = distanceToTarget;
+            //UnityEngine.Debug.Log("Connected to target waypoint.");
+            break;
         }
     }
+    newPoints.Add(target);}
+
+
+
+
 
 
     List<GameObject> FindPath(GameObject start, GameObject end)
@@ -352,98 +285,66 @@ void InitializeGraph()
     }
 
 
-void VisualizePath(List<GameObject> path, Color color)
-    {
-        for (int i = 0; i < path.Count - 1; i++)
-        {
-            //if (!IsObstacleBetween(path[i], path[i + 1]))
-            //{
-                UnityEngine.Debug.DrawLine(path[i].transform.position, path[i + 1].transform.position, color, 120f);
-                UnityEngine.Debug.Log("Drawing line from " + path[i].name + " to " + path[i + 1].name);
-            //}
-            //else
-            //{
-              //  Debug.Log("Obstacle detected between " + path[i].name + " and " + path[i + 1].name + ". Path not visualized.");
-              //  return; // Stop visualization if an obstacle is detected
-            //}
-        }
+void VisualizePath(List<GameObject> path, Color color){
+    for (int i = 0; i < path.Count - 1; i++){
+        UnityEngine.Debug.DrawLine(path[i].transform.position, path[i + 1].transform.position, color, 5000f);
+        UnityEngine.Debug.Log("Drawing line from " + path[i].name + " to " + path[i + 1].name);
     }
-
-Vector3 CalculatePosition(Vector3 A, Vector3 direction, float distance)
-    {
-        // Normalize the direction vector
-        Vector3 directionNormalized = direction.normalized;
-
-        // Scale the normalized direction by the distance
-        Vector3 offset = directionNormalized * distance;
-
-        // Calculate the position B
-        Vector3 B = A + offset;
-
-        return B;
-    }
+}
 
 
-Vector3 CrossProduct(Vector3 v1, Vector3 v2)
-    {
+Vector3 CrossProduct(Vector3 v1, Vector3 v2){
         float X = v1.y * v2.z - v1.z * v2.y;
         float Y = v1.z * v2.x - v1.x * v2.z;
         float Z = v1.x * v2.y - v1.y * v2.x;
 
-        return new Vector3(X,Y,Z);
-    }
+        return new Vector3(X,Y,Z);}
+
+
 List<Vector3> SmoothPathRRT1(List<GameObject> waypoints, GameObject endObject, GameObject startObject){
+    List<Vector3> smoothedPath = new List<Vector3>();
+    List<Vector2> smoothedPath2D = new List<Vector2>();
+    List<Vector3> NewPointsSmoothed = new List<Vector3>();
+    List<GameObject> NewObjectsSmoothed = new List<GameObject>();
+    GameObject ObjectA = new GameObject("ObjectA");
+    GameObject ObjectB = new GameObject("ObjectB");
+    List<Vector3> Prueba3D = new List<Vector3>();
+    List<float> z3D = new List<float>();
+    List<float> z3DPOINTS = new List<float>();
+    List<GameObject> PruebaObjetos = new List<GameObject>();
+    bool HitsObstacle = false;
+    int count=0;
+    List<Vector2> Points2D = new List<Vector2>();
+    List<Vector3> Points3D = new List<Vector3>();
+
+    Vector3 P0_3D = new Vector3();
+    Vector3 P2_3D = new Vector3();
+    Vector3 P3_3D = new Vector3();
+
+    Vector3 ux = new Vector3();
+    Vector3 uy = new Vector3();
+    Vector3 uz = new Vector3();
+
+    Vector4 P0_4D = new Vector4();
+    Vector4 P2_4D = new Vector4();
+    Vector4 P3_4D = new Vector4();
         
-        List<Vector3> smoothedPath = new List<Vector3>();
-        List<Vector2> smoothedPath2D = new List<Vector2>();
-        List<Vector3> NewPointsSmoothed = new List<Vector3>();
-        List<GameObject> NewObjectsSmoothed = new List<GameObject>();
-        GameObject ObjectA = new GameObject("ObjectA");
-        GameObject ObjectB = new GameObject("ObjectB");
-        //bool HitsObstacle = false;
-        List<Vector3> Prueba3D = new List<Vector3>();
-        List<float> z3D = new List<float>();
-        List<float> z3DPOINTS = new List<float>();
-        List<GameObject> PruebaObjetos = new List<GameObject>();
-        bool HitsObstacle = false;
-        int count=0;
-        List<Vector2> Points2D = new List<Vector2>();
-        List<Vector3> Points3D = new List<Vector3>();
-
-        Vector3 P0_3D = new Vector3();
-        Vector3 P2_3D = new Vector3();
-        Vector3 P3_3D = new Vector3();
-
-        Vector3 ux = new Vector3();
-        Vector3 uy = new Vector3();
-        Vector3 uz = new Vector3();
-
-        Vector4 P0_4D = new Vector4();
-        Vector4 P2_4D = new Vector4();
-        Vector4 P3_4D = new Vector4();
-        //int i=0;
-        P0_3D=waypoints[0].transform.position;
-        UnityEngine.Debug.Log("nodos en el path "+ waypoints.Count);
-        for (int i = 1; i <= waypoints.Count - 2; i=i+1){
-            UnityEngine.Debug.Log("Iteracion en for loop nro: " + i);
-        // Iterate over each segment of waypoints (considering triples for G2 continuity)
-        //P0_3D=waypoints[i-1].transform.position;
-        
+    P0_3D=waypoints[0].transform.position;
+    for (int i = 1; i <= waypoints.Count - 2; i=i+1){
+        UnityEngine.Debug.Log("iteracion " + i);
         P2_3D=waypoints[i].transform.position;
         P3_3D=waypoints[i+1].transform.position;
-        //z3D.Add((P3_3D-P2_3D).z);
-        //z3D.Add((P3_3D-P2_3D).z);
-
 
         ux = (P2_3D - P0_3D).normalized;
         uy = (P3_3D - P2_3D).normalized;
         uz = CrossProduct(ux, uy);
         uy = CrossProduct(ux,uz);
+
         float[,] TM = {
-                { ux.x , uy.x , uz.x , P0_3D.x },
-                { ux.y , uy.y , uz.y , P0_3D.y },
-                { ux.z , uy.z , uz.z , P0_3D.z },
-                {   0 ,    0 ,    0 ,    1     }
+            { ux.x , uy.x , uz.x , P0_3D.x },
+            { ux.y , uy.y , uz.y , P0_3D.y },
+            { ux.z , uy.z , uz.z , P0_3D.z },
+            {   0 ,    0 ,    0 ,    1     }
         };
 
         float[,] TM_inv = CalcularInversa(TM);
@@ -463,358 +364,125 @@ List<Vector3> SmoothPathRRT1(List<GameObject> waypoints, GameObject endObject, G
         Vector2 P2 = new Vector2(MP2_4D.x, MP2_4D.y);
         Vector2 P3 = new Vector2(MP3_4D.x, MP3_4D.y);
 
-    float titadeg =180f - Vector2.Angle((P0-P2),(P3-P2));
-    float tita = titadeg * Mathf.PI /180;
-    float beta = tita/2;
-    float k = Vector3.Distance(P2,P3);
-    float h = k * (4.58f) / (6 * Mathf.Cos(tita));
-    float g = 0.58f * h;
-    
-    float kMax = 2 * h * Mathf.Sin(tita)/(3*k*k);
-    float dMax = 1.1228f * Mathf.Sin(beta)/(kMax*Mathf.Cos(beta)*Mathf.Cos(beta));
+        float titadeg =180f - Vector2.Angle((P0-P2),(P3-P2));
+        float tita = titadeg * Mathf.PI /180;
+        float beta = tita/2;
+        float k = Vector3.Distance(P2,P3);
+        float h = k * (4.58f) / (6 * Mathf.Cos(tita));
+        float g = 0.58f * h;
+        
+        float kMax = 2 * h * Mathf.Sin(tita)/(3*k*k);
+        float dMax = 1.1228f * Mathf.Sin(beta)/(kMax*Mathf.Cos(beta)*Mathf.Cos(beta));
      
 
-    Vector2 u1 = (P0 - P2).normalized;
-    Vector2 u2 = (P3 - P2).normalized;
-    Vector2 P1 = P0 - u1 * g;
-    Vector2 D=P3-P1;
-    float d = 0.3f*D.magnitude/Mathf.Sin(tita);
+        Vector2 u1 = (P0 - P2).normalized; //P2P0 
+        Vector2 u2 = (P3 - P2).normalized; //P2P3
+        Vector2 P1 = P0 - u1 * g;
+        float D32=(P3-P2).magnitude;
+
+        float D02=(P0-P2).magnitude;
+        UnityEngine.Debug.Log("medida D32= " + D32);
+        UnityEngine.Debug.Log("medida D02= " + D02);
+        float d = 0f;
+        if(D32<D02){
+            d=D32/2;
+        }
+        else{
+            d=D02/2;
+        }
+    UnityEngine.Debug.Log("medida d= " + d);
+    //float d = 0.03f*D.magnitude/Mathf.Sin(tita);
     count=0;
     do{
     HitsObstacle = false;
-    float hb = 0.346f*d;
+    /*float hb = 0.346f*d;
     float gb = 0.58f*hb;
     float kb = 1.31f * hb * Mathf.Cos(beta);
     float he = hb;
     float ge = 0.58f * hb;
     float ke = 1.31f * hb * Mathf.Cos(beta);
-
+*/
     //u1 = (P2-P1).normalized;
 
-        Vector2 B0 = P0;//P2 + d * u1; //P0
-        Vector2 B1 = B0 - gb * u1;
-        Vector2 B2 = B1 - hb * u1;
+        Vector2 B0 = P0; //P2 + d * u1; //P0
+        Vector2 B1 = P2 + (D02/2) * u1;
+        Vector2 B2 = B1 - (D02/4) * u1;
         
-        
-        Vector2 E3 = P2 + d * u2; //P3
-        Vector2 E2 = E3 - ge * u2;
-        Vector2 E1 = E2 - he * u2;
+        Vector2 E3 = P3- (D32/2) * u2;
+        Vector2 E2 = P2 + (D32/4) * u2;
+        Vector2 E1 = E2 - (D32/8) * u2;
 
         Vector2 ud = (E1-B2).normalized;
-        Vector2 B3 = B2 + kb * ud;
+        Vector2 B3 = B2 + ud * (ud.magnitude)/2;
 
-        Vector2 E0 = E1 - ke * ud;
+        Vector2 E0 = E1 - ud * (ud.magnitude)/2;
 
             // Generate points along the first Bezier curve
-            List<Vector2> curve1Points = GenerateBezierCurve(B0, B1, B2,B3);
+            List<Vector2> curve1Points = GenerateBezierCurve(B0, B1, B2,B3); //new List<Vector2>{B0, B1, B2, B3};//
             List<Vector2> BPoints = new List<Vector2>{B0, B1, B2, B3};//
             // Generate points along the second Bezier curve
-            List<Vector2> curve2Points = GenerateBezierCurve(E0, E1, E2, E3);//
+            List<Vector2> curve2Points =GenerateBezierCurve(E0, E1, E2, E3);// new List<Vector2>{E0, E1, E2, E3}; //
             List<Vector2> EPoints = new List<Vector2>{E0, E1, E2, E3}; //
             // Add the points of curve1Points to smoothedPath (excluding duplicates)
-            foreach (var point in curve1Points)
-            {
-                if (!smoothedPath2D.Contains(point))
-                {
-                    smoothedPath2D.Add(point);
-                }
+            foreach (var point in curve1Points){
+                if (!smoothedPath2D.Contains(point)){smoothedPath2D.Add(point);}
             }
 
             // Add the points of curve2Points to smoothedPath (excluding duplicates)
-            foreach (var point in curve2Points)
-            {
-                if (!smoothedPath2D.Contains(point))
-                {
-                    smoothedPath2D.Add(point);
-            }
+            foreach (var point in curve2Points){
+                if (!smoothedPath2D.Contains(point)){smoothedPath2D.Add(point);}
             }
 
-            foreach (var point in BPoints)
-            {
-                if (!Points2D.Contains(point))
-                {
-                    Points2D.Add(point);
-                }
+            foreach (var point in BPoints){
+                if (!Points2D.Contains(point)){Points2D.Add(point);}
             }
 
             // Add the points of curve2Points to smoothedPath (excluding duplicates)
-            foreach (var point in EPoints)
-            {
-                if (!Points2D.Contains(point))
-                {
-                    Points2D.Add(point);
+            foreach (var point in EPoints){
+                if (!Points2D.Contains(point)){Points2D.Add(point);}
             }
-            }
+
             smoothedPath =  ConvertTo3D(smoothedPath2D, TM, "xy");
             Points3D=ConvertTo3D(Points2D, TM, "xy");
             smoothedPath2D.Clear();
             Points2D.Clear();
-            UnityEngine.Debug.Log("cantidad de nodos en SmoothedPath:"+ smoothedPath.Count);
+
             for(int j = 0; j < smoothedPath.Count-1; j++){
                 ObjectA.transform.position=smoothedPath[j];
                 ObjectB.transform.position=smoothedPath[j + 1];
                 UnityEngine.Debug.Log("Distancia entre puntos: "+ (Vector3.Distance(smoothedPath[j],smoothedPath[j+1])));
                 if((Vector3.Distance(smoothedPath[j],smoothedPath[j+1]))>10){
-                if(IsObstacleBetween(ObjectA, ObjectB)){
-                    UnityEngine.Debug.Log("Entra en obstacleBetween para iteracion " + i);
-                    d = d*0.2f; 
-                    HitsObstacle=true;
-                    count++;
-                    if(count == 16){
-                        //d=0.03f*d;
+                    if(IsObstacleBetween(ObjectA, ObjectB)){
+                        UnityEngine.Debug.Log("Entra en obstacleBetween para iteracion " + i);
+                        d = d*0.2f; 
+                        HitsObstacle=true;
+                        count++;
+                        if(count == 16){
+                           //d=0.03f*d;
+                        }
                     }
                 }
-                }
                 else{UnityEngine.Debug.Log("Distancia entre puntos: "+ (Vector3.Distance(smoothedPath[j],smoothedPath[j+1])));}
                    
             }
-             
-    }while(HitsObstacle && count <16);
-    if(count <16){
-        UnityEngine.Debug.Log("Se usa d= "+ d+ "para iteracion " + i);
-        NewPointsSmoothed.AddRange(smoothedPath);
-        P0_3D=NewPointsSmoothed[NewPointsSmoothed.Count-1];
-        UnityEngine.Debug.Log("cantidad de nodos en NewPointsSmoothed:"+ NewPointsSmoothed.Count);
+        }while(HitsObstacle && count <16);
+
+        if(count <16){
+            UnityEngine.Debug.Log("Se usa d= "+ d+ "para iteracion " + i);
+            NewPointsSmoothed.AddRange(smoothedPath);
+            P0_3D=NewPointsSmoothed[NewPointsSmoothed.Count-1];
+            UnityEngine.Debug.Log("cantidad de nodos en NewPointsSmoothed:"+ NewPointsSmoothed.Count);
+        }
+        else{
+            UnityEngine.Debug.Log("No se encontro d para iteracion " + i);
+            NewPointsSmoothed.AddRange(smoothedPath);
+            //NewPointsSmoothed.AddRange(Points3D);
+            P0_3D=NewPointsSmoothed[NewPointsSmoothed.Count-1];
+        }
     }
-    else{
-        UnityEngine.Debug.Log("No se encontro d para iteracion " + i);
-        NewPointsSmoothed.AddRange(smoothedPath);
-        NewPointsSmoothed.AddRange(Points3D);
-        P0_3D=NewPointsSmoothed[NewPointsSmoothed.Count-1];
-    }
-    }
-    /*
-        for(int l=0 ; l < NewPointsSmoothed.Count ; l++){
-            UnityEngine.Debug.Log("nodo nro:"+l);
-            GameObject newObject = new GameObject("New Waypoint Smooth" + l);
-            newObject.transform.position=NewPointsSmoothed[l];
-            PruebaObjetos.Add(newObject);
-    }*/
-//}
-        //PruebaObjetos.Add(endObject);
-        //PruebaObjetos.Insert(0, startObject);
-        PruebaObjetos.Add(endObject);
-        //NewPointsSmoothed.Add(endObject.transform.position);
-        return NewPointsSmoothed;}//PruebaObjetos;}
+    //PruebaObjetos.Add(endObject);
+    return NewPointsSmoothed;}
 
-
-List<Vector3> SmoothPathRRT1BIS(List<GameObject> waypoints, GameObject endObject, GameObject startObject){
-
-
-        List<Vector3> smoothedPath = new List<Vector3>();
-        List<Vector2> smoothedPath2D = new List<Vector2>();
-        List<Vector3> NewPointsSmoothed = new List<Vector3>();
-        List<GameObject> NewObjectsSmoothed = new List<GameObject>();
-        GameObject ObjectA = new GameObject("ObjectA");
-        GameObject ObjectB = new GameObject("ObjectB");
-        //bool HitsObstacle = false;
-        List<Vector3> Prueba3D = new List<Vector3>();
-        List<float> z3D = new List<float>();
-        List<float> z3DPOINTS = new List<float>();
-        List<GameObject> PruebaObjetos = new List<GameObject>();
-        bool HitsObstacle = false;
-        int count=0;
-        List<Vector2> Points2D = new List<Vector2>();
-        List<Vector3> Points3D = new List<Vector3>();
-
-        Vector3 P0_3D = new Vector3();
-        Vector3 P2_3D = new Vector3();
-        Vector3 P3_3D = new Vector3();
-
-        Vector3 ux = new Vector3();
-        Vector3 uy = new Vector3();
-        Vector3 uz = new Vector3();
-
-        Vector4 P0_4D = new Vector4();
-        Vector4 P2_4D = new Vector4();
-        Vector4 P3_4D = new Vector4();
-        //int i=0;
-        P0_3D=waypoints[0].transform.position;
-        
-        UnityEngine.Debug.Log("nodos en el path "+ waypoints.Count);
-        for (int i = 1; i <= waypoints.Count - 2; i=i+1){
-            UnityEngine.Debug.Log("Iteracion en for loop nro: " + i);
-        // Iterate over each segment of waypoints (considering triples for G2 continuity)
-        //P0_3D=waypoints[i-1].transform.position;
-        
-        P2_3D=waypoints[i].transform.position;
-        P3_3D=waypoints[i+1].transform.position;
-        //z3D.Add((P3_3D-P2_3D).z);
-        //z3D.Add((P3_3D-P2_3D).z);
-        UnityEngine.Debug.Log("Puntos P0P2P3 3D: " + P0_3D + "---" + P2_3D + "---"+P3_3D);
-
-        ux = (P2_3D - P0_3D).normalized;
-        uz = (P3_3D - P2_3D).normalized;
-        uy = CrossProduct(ux, uz);
-        uz = CrossProduct(ux,uy);
-
-        float[,] TM = {
-                { ux.x , uy.x , uz.x , P0_3D.x },
-                { ux.y , uy.y , uz.y , P0_3D.y },
-                { ux.z , uy.z , uz.z , P0_3D.z },
-                {   0 ,    0 ,    0 ,    1     }
-        };
-
-        float[,] TM_inv = CalcularInversa(TM);
-        P0_4D = new Vector4 (P0_3D.x, P0_3D.y, P0_3D.z, 1f);
-        P2_4D = new Vector4(P2_3D.x, P2_3D.y, P2_3D.z, 1f);
-        P3_4D = new Vector4(P3_3D.x, P3_3D.y, P3_3D.z, 1f);
-        Vector4 MP0_4D = MultMatrix_vector(TM_inv , P0_4D);
-        Vector4 MP2_4D = MultMatrix_vector(TM_inv , P2_4D);
-        Vector4 MP3_4D = MultMatrix_vector(TM_inv , P3_4D);
-        
-        Vector2 P0 =new Vector2 (MP0_4D.x, MP0_4D.z);
-        Vector2 P2 = new Vector2(MP2_4D.x, MP2_4D.z);
-        Vector2 P3 = new Vector2(MP3_4D.x, MP3_4D.z);
-
-        UnityEngine.Debug.Log("Puntos P0P2P3 2D: " + P0 + "---" + P2 + "---"+P3);
-
-        UnityEngine.Debug.Log("Puntos MP0_3D: " + MP0_4D.x + "---" + MP0_4D.y + "---"+MP0_4D.z + "---"+MP0_4D.w);
-        UnityEngine.Debug.Log("Puntos MP2_3D: " + MP2_4D.x + "---" + MP2_4D.y + "---"+MP2_4D.z + "---"+MP2_4D.w);
-        UnityEngine.Debug.Log("Puntos MP3_3D: " + MP3_4D.x + "---" + MP3_4D.y + "---"+MP3_4D.z + "---"+MP3_4D.w);
-
-    float titadeg =180f - Vector2.Angle((P0-P2),(P3-P2));
-    float tita = titadeg * Mathf.PI /180;
-    float beta = tita/2;
-    float k = Vector3.Distance(P2,P3);
-    float h = k * (4.58f) / (6 * Mathf.Cos(tita));
-    float g = 0.58f * h;
-    
-    float kMax = 2 * h * Mathf.Sin(tita)/(3*k*k);
-    float dMax = 1.1228f * Mathf.Sin(beta)/(kMax*Mathf.Cos(beta)*Mathf.Cos(beta));
-    UnityEngine.Debug.Log("VAAAALOOOOREEEES iteracion " + i+ "tita:"+tita+" / k:"+k+" / h:"+h+" / g:"+g);
-
-
-    Vector2 u1 = (P0 - P2).normalized;
-    Vector2 u2 = (P3 - P2).normalized;
-    Vector2 P1 = P0 - u1 * g;
-    Vector2 D=P3-P1;
-    float d = 0.03f*D.magnitude/Mathf.Sin(tita);
-    count=0;
-    do{
-    HitsObstacle = false;
-    float hb = 0.346f*d;
-    float gb = 0.58f*hb;
-    float kb = 1.31f * hb * Mathf.Cos(beta);
-    float he = hb;
-    float ge = 0.58f * hb;
-    float ke = 1.31f * hb * Mathf.Cos(beta);
-
-    //u1 = (P2-P1).normalized;
-
-        Vector2 B0 = P0;//P2 + d * u1; //P0
-        Vector2 B1 = B0 - gb * u1;
-        Vector2 B2 = B1 - hb * u1;
-        
-        Vector2 E3 = P2 + d * u2; //P3
-        Vector2 E2 = E3 - ge * u2;
-        Vector2 E1 = E2 - he * u2;
-
-        Vector2 ud = (E1-B2).normalized;
-        Vector2 B3 = B2 + kb * ud;
-
-        Vector2 E0 = E1 - ke * ud;
-            UnityEngine.Debug.Log("Puntos B: " + B0 + "---" + B1 + "---" + B2 + "---"+B3);
-            UnityEngine.Debug.Log("Puntos E: " + E0 + "---" + E1 + "---" + E2 + "---"+E3);
-            // Generate points along the first Bezier curve
-            List<Vector2> curve1Points = GenerateBezierCurve(B0, B1, B2,B3);//new List<Vector2>{B0, B1, B2, B3};//GenerateBezierCurve(B0, B1, B2,B3);
-            List<Vector2> BPoints = new List<Vector2>{B0, B1, B2, B3};//
-            // Generate points along the second Bezier curve
-            List<Vector2> curve2Points = GenerateBezierCurve(E0, E1, E2, E3);//new List<Vector2>{E0, E1, E2, E3}; // 
-            List<Vector2> EPoints = new List<Vector2>{E0, E1, E2, E3}; //
-            // Add the points of curve1Points to smoothedPath (excluding duplicates)
-            foreach (var point in curve1Points)
-            {
-                if (!smoothedPath2D.Contains(point))
-                {
-                    smoothedPath2D.Add(point);
-                }
-            }
-
-            // Add the points of curve2Points to smoothedPath (excluding duplicates)
-            foreach (var point in curve2Points)
-            {
-                if (!smoothedPath2D.Contains(point))
-                {
-                    smoothedPath2D.Add(point);
-            }
-            }
-
-            foreach (var point in BPoints)
-            {
-                if (!Points2D.Contains(point))
-                {
-                    Points2D.Add(point);
-                }
-            }
-
-            // Add the points of curve2Points to smoothedPath (excluding duplicates)
-            foreach (var point in EPoints)
-            {
-                if (!Points2D.Contains(point))
-                {
-                    Points2D.Add(point);
-            }
-            }
-            
-            //smoothedPath2D.RemoveAt(smoothedPath2D.Count-1);
-            //smoothedPath=ConvertTo3D(smoothedPath2D, TM, z3D);
-            
-            //List<Vector3> Points3D1 = ConvertTo3D(smoothedPath2D, TM, "xy");
-
-            
-
-            //smoothedPath = ConvertTo3D(smoothedPath2D, TM, interpolatedZ);
-            //Points3D = ConvertTo3D(Points2D, TM, interpolatedZ);
-            smoothedPath =  ConvertTo3D(smoothedPath2D, TM, "xz");
-            Points3D=ConvertTo3D(Points2D, TM, "xz");
-            smoothedPath2D.Clear();
-            Points2D.Clear();
-            UnityEngine.Debug.Log("cantidad de nodos en SmoothedPath:"+ smoothedPath.Count);
-            for(int j = 0; j < smoothedPath.Count-1; j++){
-                ObjectA.transform.position=smoothedPath[j];
-                ObjectB.transform.position=smoothedPath[j + 1];
-                UnityEngine.Debug.Log("Distancia entre puntos: "+ (Vector3.Distance(smoothedPath[j],smoothedPath[j+1])));
-                if((Vector3.Distance(smoothedPath[j],smoothedPath[j+1]))>20){
-                if(IsObstacleBetween(ObjectA, ObjectB)){
-                    //UnityEngine.Debug.Log("Entra en obstacleBetween para iteracion " + i);
-                    d = d*0.4f; 
-                    HitsObstacle=true;
-                    count++;
-                    //break;
-                }
-                }
-                else{UnityEngine.Debug.Log("Distancia entre puntos: "+ (Vector3.Distance(smoothedPath[j],smoothedPath[j+1])));}
-                   
-            }
-             
-    }while(HitsObstacle && count <16);
-    if(count <16){
-        UnityEngine.Debug.Log("Se usa d= "+ d+ "para iteracion " + i);
-        NewPointsSmoothed.AddRange(smoothedPath);
-        UnityEngine.Debug.Log("cantidad de nodos en NewPointsSmoothed:"+ NewPointsSmoothed.Count);
-    }
-    else{
-        UnityEngine.Debug.Log("No se encontro d para iteracion " + i);
-        NewPointsSmoothed.AddRange(Points3D);
-    }
-     P0_3D=NewPointsSmoothed[NewPointsSmoothed.Count-1];
-    }
-    /*
-        for(int l=0 ; l < NewPointsSmoothed.Count ; l++){
-            UnityEngine.Debug.Log("nodo nro:"+l);
-            GameObject newObject = new GameObject("New Waypoint Smooth" + l);
-            newObject.transform.position=NewPointsSmoothed[l];
-            PruebaObjetos.Add(newObject);
-    }*/
-//}
-        //PruebaObjetos.Add(endObject);
-        //PruebaObjetos.Insert(0, startObject);
-        PruebaObjetos.Add(endObject);
-        NewPointsSmoothed.Add(endObject.transform.position);
-        return NewPointsSmoothed;
-
-}
 
 Vector2 BezierCurvePoint(float t, Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3)
     {
