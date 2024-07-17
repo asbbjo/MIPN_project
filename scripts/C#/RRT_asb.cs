@@ -16,13 +16,11 @@ public class RRT_asb : MonoBehaviour
     public int threshold;
     private List<GameObject> newPoints = new List<GameObject>();
     private List<Vector3> newPointsSmooth = new List<Vector3>();
-    private List<GameObject> tree = new List<GameObject>();
     private Dictionary<GameObject, Dictionary<GameObject, float>> graph = new Dictionary<GameObject, Dictionary<GameObject, float>>();
     private Dictionary<GameObject, Dictionary<GameObject, float>> graphSmooth = new Dictionary<GameObject, Dictionary<GameObject, float>>();
     private List<GameObject> prunedPoints = new List<GameObject>();
     List<GameObject> smoothObjects = new List<GameObject>();
     List<Vector3> NewPointsSmoothed = new List<Vector3>();
-    List<Vector3> NewPointsSmoothedBIS = new List<Vector3>();
     List<Vector3> NewPointsSmoothedFinal = new List<Vector3>();
 
     void Start()
@@ -39,15 +37,17 @@ public class RRT_asb : MonoBehaviour
             return;
         }
         
+        // Do maximum 3 attempts to find a path without obstacles 
         bool obstaclesInPath = true;
         int attempts = 0;
-        while (obstaclesInPath && attempts < 2){
+        while (obstaclesInPath && attempts < 3){
             graph[startObject] = new Dictionary<GameObject, float>();
             graph[endObject] = new Dictionary<GameObject, float>();
             newPoints = new List<GameObject>();
             prunedPoints = new List<GameObject>();
             smoothObjects = new List<GameObject>();
 
+            // Do all the RRT and smoothing
             GenerateRRTPoints(startObject, endObject, numberOfPoints, maxDistance, numberOfBranches); 
             prunedPoints = PathPruning (newPoints);
             NewPointsSmoothedFinal=SmoothPathRRT1(prunedPoints, endObject, startObject);
@@ -57,12 +57,14 @@ public class RRT_asb : MonoBehaviour
                 smoothObjects.Add(newObject);
                 AddMeshColliderToObject(smoothObjects[l]);
             }
+            // Check the smooth curve for obstacles
             if (smoothObjects.Count > 1){
                 obstaclesInPath = checkObstaclesInPath(smoothObjects);
             }
             attempts++;
             UnityEngine.Debug.Log("Attempt nr.:" + attempts);
         }
+        // Draw paths
         VisualizePath(newPoints, Color.red);
         VisualizePath(prunedPoints, Color.cyan);
         VisualizePath(smoothObjects, Color.green);
