@@ -25,6 +25,18 @@ public class BrainRRT : MonoBehaviour
     void Start()
     {   
         // Check if objects are assigned
+        CheckInitialization();
+        
+        // Calculate, find and check paths with RRT, pruning and smoothing
+        GetPaths();
+
+        // Visialize the paths
+        VisualizePath(newPoints, Color.red);
+        VisualizePath(prunedPoints, Color.yellow);
+        VisualizePath(smoothObjects, Color.green);
+    }
+
+    void CheckInitialization(){
         UnityEngine.Debug.Log("Start: Checking assignments before initialization");
         UnityEngine.Debug.Log("startObject: " + (startObject != null ? startObject.name : "null"));
         UnityEngine.Debug.Log("endObject: " + (endObject != null ? endObject.name : "null"));
@@ -37,7 +49,9 @@ public class BrainRRT : MonoBehaviour
             UnityEngine.Debug.LogError("Start or End waypoint is not assigned. Please assign waypoints in the Inspector.");
             return;
         }
-        
+    }
+
+    void GetPaths(){
         // Find a path until it's not hitting any obstacles
         bool obstaclesInPath = true;
         int attempts = 0;
@@ -65,11 +79,6 @@ public class BrainRRT : MonoBehaviour
             attempts++;
             UnityEngine.Debug.Log("Attempt nr.:" + attempts);
         }
-
-        // Visialize the paths
-        VisualizePath(newPoints, Color.red);
-        VisualizePath(prunedPoints, Color.yellow);
-        VisualizePath(smoothObjects, Color.green);
     }
 
     void AddMeshCollidersToStartEndObjects(){
@@ -202,6 +211,18 @@ public class BrainRRT : MonoBehaviour
     return false;
     }
 
+    bool checkObstaclesInPath(List<GameObject> smoothObjects){
+        if (smoothObjects.Count < 2){
+            return true;
+        }
+        for(int i=0; i < smoothObjects.Count - 1; i++){
+            if(IsObstacleBetween(smoothObjects[i], smoothObjects[i+1])){
+                return true;
+            }
+        }
+        return false;
+    }
+
     List<GameObject> FindPath(GameObject start, GameObject end)
     {
         Dictionary<GameObject, float> distances = new Dictionary<GameObject, float>();
@@ -262,6 +283,16 @@ public class BrainRRT : MonoBehaviour
         return path;
     }
 
+    void VisualizePath(List<GameObject> path, Color color){
+        if (path[0].transform.position != startObject.transform.position){
+            path.Insert(0,startObject);
+        }
+        for (int i = 0; i < path.Count - 1; i++){
+            UnityEngine.Debug.DrawLine(path[i].transform.position, path[i + 1].transform.position, color, 5000f);
+            UnityEngine.Debug.Log("Drawing line from " + path[i].name + " to " + path[i + 1].name);
+        }
+    }
+    
     Vector3 CrossProduct(Vector3 v1, Vector3 v2){
         float X = v1.y * v2.z - v1.z * v2.y;
         float Y = v1.z * v2.x - v1.x * v2.z;
@@ -443,12 +474,13 @@ public class BrainRRT : MonoBehaviour
     return p;}
 
     Vector4 MultMatrix_vector(float[,] M,Vector4 P){
-    Vector4 PN = new Vector4();
+        Vector4 PN = new Vector4();
         PN.x = M[0, 0] * P.x + M[0, 1] * P.y + M[0, 2] * P.z+ M[0, 3] * P.w;
         PN.y = M[1, 0] * P.x + M[1, 1] * P.y +M[1, 2] * P.z+ M[1, 3] * P.w;
         PN.z = M[2, 0] * P.x + M[2, 1] * P.y + M[2, 2] * P.z+ M[2, 3] * P.w;
         PN.w = M[3, 0] * P.x + M[3, 1] * P.y + M[3, 2] * P.z+ M[3, 3] * P.w;
-        return PN;}
+        return PN;
+    }
 
     List<Vector2> GenerateBezierCurve(Vector2 P0, Vector2 P1, Vector2 P2, Vector2 P3)
     { // Function to generate points along a cubic Bezier curve
@@ -588,27 +620,4 @@ public class BrainRRT : MonoBehaviour
         UnityEngine.Debug.Log(obj);
     }
     return newPointsPrunedOK;}
-
-    bool checkObstaclesInPath(List<GameObject> smoothObjects){
-    if (smoothObjects.Count < 2){
-        return true;
-    }
-    for(int i=0; i < smoothObjects.Count - 1; i++){
-        if(IsObstacleBetween(smoothObjects[i], smoothObjects[i+1])){
-            return true;
-        }
-    }
-    return false;
-}
-
-    void VisualizePath(List<GameObject> path, Color color){
-    if (path[0].transform.position != startObject.transform.position){
-        path.Insert(0,startObject);
-    }
-    for (int i = 0; i < path.Count - 1; i++){
-        UnityEngine.Debug.DrawLine(path[i].transform.position, path[i + 1].transform.position, color, 5000f);
-        UnityEngine.Debug.Log("Drawing line from " + path[i].name + " to " + path[i + 1].name);
-    }
-    }
-
 }
