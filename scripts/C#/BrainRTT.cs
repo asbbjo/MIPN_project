@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System;
 using System.Diagnostics;
 
-public class RRT_asb : MonoBehaviour
+public class BrainRRT : MonoBehaviour
 {
     //public Text statusText; // UI text to display status
     public GameObject startObject; // Start object assigned in the Inspector
