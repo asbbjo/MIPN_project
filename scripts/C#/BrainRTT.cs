@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System;
 using System.Diagnostics;
 
-public class BrainRRT : MonoBehaviour
+public class RRT_asb : MonoBehaviour
 {
     //public Text statusText; // UI text to display status
     public GameObject startObject; // Start object assigned in the Inspector
@@ -51,6 +51,7 @@ public class BrainRRT : MonoBehaviour
             // Create the RRT, then prune and smooth the path
             GenerateRRTPoints(startObject, endObject, numberOfPoints, branchDistance, numberOfBranches); 
             prunedPoints = PathPruning (newPoints);
+            prunedPoints.Insert(0,startObject);
             NewPointsSmoothedFinal=SmoothPathRRT1(prunedPoints, endObject, startObject);
             for(int l=0 ; l < NewPointsSmoothedFinal.Count ; l++){
                 GameObject newObject = new GameObject("New Waypoint Smooth" + l);
@@ -67,7 +68,7 @@ public class BrainRRT : MonoBehaviour
 
         // Visialize the paths
         VisualizePath(newPoints, Color.red);
-        VisualizePath(prunedPoints, Color.cyan);
+        VisualizePath(prunedPoints, Color.yellow);
         VisualizePath(smoothObjects, Color.green);
     }
 
@@ -601,8 +602,9 @@ public class BrainRRT : MonoBehaviour
 }
 
     void VisualizePath(List<GameObject> path, Color color){
-    UnityEngine.Debug.DrawLine(startObject.transform.position, path[0].transform.position, color, 5000f);
-    UnityEngine.Debug.Log("Drawing line from " + startObject.name + " to " + path[0].name);
+    if (path[0].transform.position != startObject.transform.position){
+        path.Insert(0,startObject);
+    }
     for (int i = 0; i < path.Count - 1; i++){
         UnityEngine.Debug.DrawLine(path[i].transform.position, path[i + 1].transform.position, color, 5000f);
         UnityEngine.Debug.Log("Drawing line from " + path[i].name + " to " + path[i + 1].name);
